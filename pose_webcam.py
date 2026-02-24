@@ -1,0 +1,160 @@
+"""
+Webcam Pose Landmark Visualization using MediaPipe *Tasks* (modern API) + OpenCV.
+
+Requirements:
+  pip install opencv-python mediapipe
+
+Note:
+  This uses the MediaPipe Tasks "PoseLandmarker" API (not mediapipe.solutions).
+
+You also need a pose landmarker model file (.task). Download one of these and set MODEL_PATH:
+  - pose_landmarker_lite.task
+  - pose_landmarker_full.task
+  - pose_landmarker_heavy.task
+
+Run:
+  python mediapipe_pose_webcam_tasks.py
+
+Keys:
+  q or ESC -> quit
+"""
+
+from __future__ import annotations
+
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+import time
+
+import cv2
+import mediapipe as mp
+
+
+
+
+
+# Point this to your downloaded .task model file
+MODEL_PATH = os.environ.get("MP_POSE_TASK_MODEL", "pose_landmarker_lite.task")
+
+
+
+def _normalized_to_pixel(x: float, y: float, width: int, height: int) -> tuple[int, int]:
+    return int(x * width), int(y * height)
+
+
+def main():
+    if not os.path.exists(MODEL_PATH):
+        raise FileNotFoundError(
+            f"Model file not found: {MODEL_PATH}\n"
+            "Download a pose_landmarker_*.task model and either:\n"
+            f"  - place it next to this script as '{MODEL_PATH}', or\n"
+            "  - set env var MP_POSE_TASK_MODEL to the full path."
+        )
+    
+
+
+
+
+    cap= cv2.VideoCapture(0)
+
+    if not cap.isOpened():
+        raise RuntimeError("Could not open webcam (index 0). Try 1, 2, etc.")
+
+    # --- MediaPipe Tasks: PoseLandmarker ---
+    BaseOptions = mp.tasks.BaseOptions
+    PoseLandmarker = mp.tasks.vision.PoseLandmarker
+    PoseLandmarkerOptions = mp.tasks.vision.PoseLandmarkerOptions
+    VisionRunningMode = mp.tasks.vision.RunningMode
+
+    options = PoseLandmarkerOptions(
+        base_options=BaseOptions(model_asset_path=MODEL_PATH),
+        running_mode=VisionRunningMode.VIDEO,
+        num_poses=1,
+        min_pose_detection_confidence=0.5,
+        min_pose_presence_confidence=0.5,
+        min_tracking_confidence=0.5,
+        # output_segmentation_masks=False,  # available in some versions
+    )
+
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1080)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1920)
+
+    WINDOW_NAME = "Pose Landmarks (Tasks API)"
+    cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)  # ventana redimensionable
+    cv2.resizeWindow(WINDOW_NAME, 1080, 1920)          # tamaño inicial (ancho, alto)
+
+    with PoseLandmarker.create_from_options(options) as landmarker:
+        while True:
+            ok, frame = cap.read()
+            if not ok:
+                break
+
+            # Mirror view for "selfie" feel (optional)
+            frame = cv2.flip(frame, 1)
+
+            h, w = frame.shape[:2]
+
+            # MediaPipe Image expects RGB
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+
+            # Timestamp must be monotonically increasing (ms)
+            timestamp_ms = int(time.time() * 1000)
+
+            result = landmarker.detect_for_video(mp_image, timestamp_ms)
+
+            # Draw landmarks (we'll draw points + a few helpful connections)
+            if result.pose_landmarks:
+                landmarks = result.pose_landmarks[0]  # first detected pose
+
+                # Draw points
+                for lm in landmarks:
+                    cx, cy = _normalized_to_pixel(lm.x, lm.y, w, h)
+                    # basic visibility check (visibility may be 0..1 depending on model/version)
+                    if 0 <= cx < w and 0 <= cy < h:
+                        cv2.circle(frame, (cx, cy), 3, (0, 255, 0), -1)
+
+                # Minimal set of connections (indices follow MediaPipe Pose landmark schema)
+                connections = [
+                    # Torso
+                    (11, 12), (11, 23), (12, 24), (23, 24),
+                    # Left arm
+                    (11, 13), (13, 15),
+                    # Right arm
+                    (12, 14), (14, 16),
+                    # Left leg
+                    (23, 25), (25, 27),
+                    # Right leg
+                    (24, 26), (26, 28),
+                    # Shoulders to head-ish (helps orientation)
+                    (11, 0), (12, 0),
+                ]
+
+                for a, b in connections:
+                    if a < len(landmarks) and b < len(landmarks):
+                        ax, ay = _normalized_to_pixel(landmarks[a].x, landmarks[a].y, w, h)
+                        bx, by = _normalized_to_pixel(landmarks[b].x, landmarks[b].y, w, h)
+                        cv2.line(frame, (ax, ay), (bx, by), (0, 200, 255), 2)
+
+            cv2.putText(
+                frame,
+                "MediaPipe Tasks PoseLandmarker - Press 'q' or ESC to quit",
+                (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (255, 255, 255),
+                2,
+                cv2.LINE_AA,
+            )
+            rotated_image = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+
+            cv2.imshow("Pose Landmarks (Tasks API)", rotated_image)
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord("q") or key == 27:
+                break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+
+
+main()
