@@ -109,14 +109,23 @@ def main():
         result_callback=result_callback,
     )
     landmarker = vision.HandLandmarker.create_from_options(options)
-
     cap = cv2.VideoCapture(0)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1080)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1920)
+
+    WINDOW_NAME = "macros landmarker"
+    cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)  # ventana redimensionable
+    cv2.resizeWindow(WINDOW_NAME, 1080, 1920)    
+    
     if not cap.isOpened():
         raise RuntimeError("No pude abrir la webcam (index 0).")
 
     last_saved_ts = 0.0  # anti-rebote al guardar
 
     try:
+        
+       
+              # tamaño inicial (ancho, alto)
         while True:
             ok, frame_bgr = cap.read()
             if not ok:
@@ -156,7 +165,7 @@ def main():
                     cv2.circle(frame_bgr, (px, py), 3, (0, 255, 0), -1)
                 # dibujar conexiones
                 for a, b in HAND_CONNECTIONS:
-                    cv2.line(frame_bgr, pts[a], pts[b], (0, 0, 255), 2)
+                    cv2.line(frame_bgr, pts[a], pts[b], (0, 200, 255), 2)
 
                 current_pose_vec = flatten_hand_landmarks(hand_landmarks)
 
@@ -176,7 +185,8 @@ def main():
             cv2.putText(frame_bgr, match_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2, cv2.LINE_AA)
             cv2.putText(frame_bgr, "Press 'r' to record, 'ESC' to quit", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 2, cv2.LINE_AA)
 
-            cv2.imshow("Hands pose record/match", frame_bgr)
+            rotated_image = cv2.rotate(frame_bgr, cv2.ROTATE_90_CLOCKWISE)
+            cv2.imshow("Hands pose record/match", rotated_image)
 
             key = cv2.waitKey(1) & 0xFF
             if key == 27:  # ESC
