@@ -51,7 +51,7 @@ def main():
         result_callback=result_callback,
     )
     landmarker = vision.HandLandmarker.create_from_options(options)
-    WINDOW_NAME = "hand Landmarks (Tasks API)"
+    WINDOW_NAME = "Hand Landmarks (Tasks API)"
     cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)  # ventana redimensionable
     cv2.resizeWindow(WINDOW_NAME, 1080, 1920)          # tamaño inicial (ancho, alto)
     cap = cv2.VideoCapture(0)
@@ -116,7 +116,7 @@ def main():
             )
             rotated_image = cv2.rotate(frame_bgr, cv2.ROTATE_90_CLOCKWISE)
 
-            cv2.imshow("Hands Landmarker (LIVE_STREAM)", rotated_image)
+            cv2.imshow(WINDOW_NAME, rotated_image)
             if cv2.waitKey(1) & 0xFF == 27:
                 if key == ord("q") or key == 27:
                     break
@@ -126,4 +126,5 @@ def main():
         landmarker.close()
 
 if __name__ == "__main__":
+
     main()
