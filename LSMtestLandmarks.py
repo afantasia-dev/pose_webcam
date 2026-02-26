@@ -186,7 +186,7 @@ def main():
             cv2.putText(frame_bgr, "Press 'r' to record, 'ESC' to quit", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 2, cv2.LINE_AA)
 
             rotated_image = cv2.rotate(frame_bgr, cv2.ROTATE_90_CLOCKWISE)
-            cv2.imshow("Hands pose record/match", rotated_image)
+            cv2.imshow(WINDOW_NAME, rotated_image)
 
             key = cv2.waitKey(1) & 0xFF
             if key == 27:  # ESC
@@ -213,3 +213,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
